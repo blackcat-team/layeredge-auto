@@ -30,11 +30,15 @@ SSL = True
 # ┗━━━━━━━━━━━━━━━━━━━━━━━━┛
 # Enable or disable tasks
 
-DO_PROOF = True                         # Send proof
-DO_SUBMIT_PROOF_TASK = True             # Complete the task with proof confirmation
-DO_LIGHT_NODE_RUN_TASK = True           # Complete the task with light node confirmation
-DO_PLEDGE_PASS_HOLD_TASK = False        # Complete the task with free pass
-DO_OG_PLEDGE_PASS_HOLD_TASK = False     # Complete the task with OG pass
+MIN_DELAY_BEFORE_START_TASKS = 0
+MAX_DELAY_BEFORE_START_TASKS = 60 * 60
+
+DO_PROOF = False                         # Send proof
+DO_SUBMIT_PROOF_TASK = False             # Complete the task with proof confirmation
+DO_LIGHT_NODE_RUN_TASK = False            # Complete the task with light node confirmation
+DO_PLEDGE_PASS_HOLD_TASK = False         # Complete the task with free pass
+DO_OG_PLEDGE_PASS_HOLD_TASK = False      # Complete the task with OG pass
+DO_CONNECT_TWITTER_TASK = True           # Complete the task with OG pass
 
 # ┏━━━━━━━━━━━━━━━━━━━━━━━━┓
 # ┃      MINT PASSES       ┃
@@ -43,5 +47,5 @@ DO_OG_PLEDGE_PASS_HOLD_TASK = False     # Complete the task with OG pass
 
 MINT_FREE_PASS = True                   # Mint free pledge pass. Need ETH to pay transaction fees
 MINT_OG_PASS = False                    # Mint OG pledge pass for 0.0009 ETH
-MIN_DELAY_BETWEEN_ACCOUNTS = 100        # in seconds
-MAX_DELAY_BETWEEN_ACCOUNTS = 600        # in seconds
+MIN_DELAY_BETWEEN_ACCOUNTS = 1        # in seconds
+MAX_DELAY_BETWEEN_ACCOUNTS = 2        # in seconds

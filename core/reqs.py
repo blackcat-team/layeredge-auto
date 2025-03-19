@@ -2,6 +2,7 @@ import asyncio
 import time
 from random import random, choice
 from datetime import datetime, timezone
+from socket import AF_INET
 
 import aiohttp
 from aiohttp import ClientHttpProxyError, ClientResponseError
@@ -10,6 +11,8 @@ from eth_account.messages import encode_defunct
 from core.account import Account
 from utils.file_utils import write_success_account, write_failed_account, write_success_tasks, write_failed_tasks
 from utils.file_utils import read_proxies, read_proofs
+from utils.file_utils import write_failed_connect_twitter_private_key, write_failed_connect_twitter_auth_token
+from utils.file_utils import write_success_connect_twitter_private_key, write_success_connect_twitter_auth_token
 from configs.config import SSL
 from utils.log_utils import logger
 from fake_useragent import UserAgent
@@ -59,15 +62,12 @@ timeout: int = 10
                     proxy = choice(proxies[int(len(proxies)/1.5):])
                     logger.error(f"{wallet_address} | Changed proxy: {proxy}")
             except ClientResponseError:
-                try:
-                    return status, response_json
-                except:
-                    logger.error(f"{wallet_address} | request failed, attempt {_ + 1}/{retries}")
+                logger.error(f"{wallet_address} | request failed, attempt {_ + 1}/{retries}")
             except TimeoutError:
                 logger.error(f"{wallet_address} | TimeoutError, attempt {_+1}/{retries}")
             except Exception as e:
                 logger.error(f"{wallet_address} | Unexpected error: {e}, attempt {_+1}/{retries}")
-        await asyncio.sleep(3, 10)
+            await asyncio.sleep(3, 10)
     return 400, {}
 
 
@@ -290,7 +290,8 @@ async def send_prof(account: Account, proxy):
         proxy,
         account.ua,
         data_prof,
-        account.wallet_address
+        account.wallet_address,
+        retries=3
     )
 
     if response_status < 400:
@@ -328,7 +329,9 @@ async def submit_prof(account: Account, proxy):
         proxy,
         account.ua,
         data_proof_submit,
-        account.wallet_address
+        account.wallet_address,
+        timeout=30,
+        retries=5
     )
 
     if response_status < 400:
@@ -462,3 +465,259 @@ async def submit_og_pass(account: Account, proxy):
                 logger.error(f"{account.wallet_address} | Failed to complete task: verify OG pass holding")
                 write_failed_tasks(account.wallet_address)
         return False
+
+async def approve_twitter(account: Account, proxy, twitter_id, auth_token, session: aiohttp.ClientSession, headers):
+    logger.success(f"{account.wallet_address} | Starting proof twitter task..")
+    url = "https://referralapi.layeredge.io/api/task/connect-twitter"
+    timestamp = int(time.time() * 1000)
+    message = f"I am verifying my Twitter authentication for {account.wallet_address} at {timestamp}"
+    msg_hash = encode_defunct(text=message)
+    sign = account.evm_account.sign_message(msg_hash)['signature'].hex()
+
+    data_proof_submit = {
+        'sign': f"0x{sign}",
+        'timestamp': timestamp,
+        'twitterId': twitter_id,
+        'walletAddress': account.wallet_address
+    }
+
+    logger.info(f"{account.wallet_address} | Sending request to proof twitter..")
+
+    response_status, response_json = await make_request(
+        'POST',
+        url,
+        proxy,
+        account.ua,
+        data_proof_submit,
+        account.wallet_address,
+        retries=3
+    )
+
+    if response_status < 400:
+        if response_status == 200:
+            if 'message' in response_json:
+                if 'CORS policy blocked this request' in response_json['message']:
+                    logger.error(f"{account.wallet_address} | Couldn't connect the twitter account")
+                    write_failed_tasks(account.private_key)
+                    write_failed_connect_twitter_private_key(account.private_key)
+                    write_failed_connect_twitter_auth_token(auth_token)
+                    return False
+                else:
+                    logger.success(f"{account.wallet_address} | Successfully complete task: connect twitter")
+                    write_success_tasks(account.private_key)
+                    write_success_connect_twitter_private_key(account.private_key)
+                    write_success_connect_twitter_auth_token(auth_token)
+                    await db.insert_private_key_twitter(account.private_key, auth_token)
+                    return True
+    else:
+        if response_status == 401:
+            if 'message' in response_json:
+                if 'Twitter account verification failed or account does not exist' in response_json['message']:
+                    logger.warning(
+                        f'{account.wallet_address} | Twitter account with token "{auth_token} is already linked')
+        elif response_status == 409:
+            if 'message' in response_json:
+                if 'account is already linked' in response_json['message']:
+                    logger.warning(f'{account.wallet_address} | Twitter account with token "{auth_token} is already linked')
+                elif 'Your wallet is already linked with a different Twitter account' in response_json['message']:
+                    logger.warning(f'{account.wallet_address} | Wallet is already linked with a different Twitter account')
+        logger.warning(f"{account.wallet_address} | Couldn't connect the twitter account")
+        return False
+
+# twitter connect
+async def connect_twitter(account: Account, proxy, auth_token):
+    logger.success(f"{account.wallet_address} | Starting connect twitter task..")
+    headers = {
+        "User-Agent": account.ua
+    }
+    connector = aiohttp.TCPConnector(family=AF_INET, limit_per_host=10)
+    timeout = aiohttp.ClientTimeout(total=5)
+    async with aiohttp.ClientSession(timeout=timeout, connector=connector, max_line_size=8190 * 2, max_field_size=8190 * 2) as session:
+        try:
+            csrf_token = await get_csrf_token(account, proxy, session)
+            await asyncio.sleep(1)
+            auth_url = await get_x_auth_link(account, proxy, session, headers, csrf_token)
+            await asyncio.sleep(3)
+            x_cookies, twitter_id, url_to_get_auth_code = await get_twitter_data(account, proxy, session, headers, auth_url, auth_token)
+            # await asyncio.sleep(5)
+            if twitter_id:
+                logger.success(f"{account.wallet_address} | Successfully logged into the Twitter account")
+            else:
+                logger.error(f"{account.wallet_address} | Couldn't log into the twitter account")
+                write_failed_connect_twitter_private_key(account.private_key)
+                write_failed_connect_twitter_auth_token(auth_token)
+                return
+            auth_token_to_layer_redirect, x_headers = await get_x_auth_code(account, proxy, session, x_cookies, auth_url, url_to_get_auth_code)
+            # await asyncio.sleep(4)
+            if auth_token_to_layer_redirect:
+                logger.success(f"{account.wallet_address} | Successfully auth through twitter account")
+            redirect_uri = await x_auth_and_get_redirect_url(account, proxy, session, x_headers, x_cookies, auth_token_to_layer_redirect)
+            await asyncio.sleep(1)
+            result = await request_to_redirect_url(account, proxy, session, redirect_uri)
+            # await asyncio.sleep(5)
+
+            if result:
+                logger.success(f"{account.wallet_address} | Successfully logged into LayerEdge via Twitter.")
+                # await asyncio.sleep(60 * 60)
+                await approve_twitter(account, proxy, twitter_id, auth_token, session, headers)
+                return
+        except:
+            logger.error(f"{account.wallet_address} | Couldn't auth through twitter account")
+            write_failed_connect_twitter_private_key(account.private_key)
+            write_failed_connect_twitter_auth_token(auth_token)
+
+    return
+async def fetch_with_retries(method, url, session, wallet_address, proxy, retries=10, **kwargs) -> aiohttp.ClientResponse:
+    """Выполняет HTTP-запрос с повторными попытками в случае ошибки."""
+    for attempt in range(retries):
+        try:
+            response = await session.request(method, url, proxy=proxy, ssl=SSL, **kwargs)
+            return response
+        except ClientHttpProxyError:
+            logger.error(f"{wallet_address} | Bad proxy: {proxy}")
+            if retries % 2 == 1:
+                proxy = choice(proxies[int(len(proxies) / 1.5):])
+                logger.error(f"{wallet_address} | Changed proxy: {proxy}")
+        except ClientResponseError:
+            logger.error(f"{wallet_address} | Request failed, attempt {attempt + 1}/{retries}")
+        except TimeoutError:
+            logger.error(f"{wallet_address} | TimeoutError, attempt {attempt + 1}/{retries}")
+        except Exception as e:
+            logger.error(f"{wallet_address} | Unexpected error: {e}, attempt {attempt + 1}/{retries}")
+        await asyncio.sleep(3, 10)
+
+    return None
+
+async def get_csrf_token(account: Account, proxy, session: aiohttp.ClientSession):
+    url_to_get_crf = "https://dashboard.layeredge.io/api/auth/csrf"
+
+    response = await fetch_with_retries(
+        method="GET", url=url_to_get_crf, session=session, wallet_address=account.wallet_address, proxy=proxy
+    )
+
+    try:
+        return (await response.json())["csrfToken"]
+    except:
+        return None
+
+async def get_x_auth_link(account: Account, proxy, session: aiohttp.ClientSession, headers: dict, csrf_token: str):
+    url_to_get_x_auth_link = "https://dashboard.layeredge.io/api/auth/signin/twitter"
+
+    payload_to_get_x_auth_link = {
+        "callbackUrl": "https://dashboard.layeredge.io/",
+        "csrfToken": csrf_token,
+        "json": True
+    }
+
+    response = await fetch_with_retries(
+        method="POST", url=url_to_get_x_auth_link, session=session, wallet_address=account.wallet_address, proxy=proxy,
+        data=payload_to_get_x_auth_link, headers=headers
+    )
+    try:
+        return str(response.url)
+    except:
+        return None
+
+async def get_twitter_data(account: Account, proxy, session: aiohttp.ClientSession, headers: dict, auth_url, auth_token: str):
+    x_cookies = {
+        "auth_token": auth_token
+    }
+
+    response = await fetch_with_retries(
+        method="GET", url="https://x.com", session=session, wallet_address=account.wallet_address, proxy=proxy,
+        headers=headers, cookies=x_cookies
+    )
+
+    try:
+        response_text = await response.text()
+        a = response_text.find('"id_str":"')
+        if a == -1:
+            return None, None, None
+        b = response_text[a + len('"id_str":"'):].find('"')
+        twitter_id = response_text[a + len('"id_str":"'):a + len('"id_str":"') + b]
+        ct0 = str(response.cookies.get("ct0"))
+
+        a = ct0.find("ct0=")
+        b = ct0.find(";")
+        x_cookies["ct0"] = ct0[a + len("ct0="):b]
+
+        # get token to x auth
+        # create link to get x code
+        a = auth_url.find("client_id")
+        b = a + 44
+        client_id = auth_url[a + len("client_id") + 1:b]
+
+        a = auth_url.find("code_challenge")
+        b = a + 58
+        code_challenge = auth_url[a + len("code_challenge") + 1:b]
+
+        a = auth_url.find("&state=")
+        b = a + 50
+        state = auth_url[a + len("&state") + 1:b]
+
+        # link to get x code
+        url_to_get_auth_code = f"https://twitter.com/i/api/2/oauth2/authorize?client_id={client_id}&code_challenge={code_challenge}&code_challenge_method=S256&redirect_uri=https%3A%2F%2Fdashboard.layeredge.io%2Fapi%2Fauth%2Fcallback%2Ftwitter&response_type=code&scope=users.read%20tweet.read%20offline.access&state={state}"
+
+        return x_cookies, twitter_id, url_to_get_auth_code
+    except:
+        return None, None, None
+
+async def get_x_auth_code(account: Account, proxy, session: aiohttp.ClientSession, x_cookies: dict, auth_url, url_to_get_auth_code: str):
+    headers = {
+        "User-Agent": account.ua,
+        "Referer": auth_url,
+        "X-Csrf-Token": x_cookies["ct0"],
+        "Authorization": "Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA"
+    }
+
+    response = await fetch_with_retries(
+        method="GET", url=url_to_get_auth_code, session=session, wallet_address=account.wallet_address, proxy=proxy,
+        headers=headers, cookies=x_cookies
+    )
+    try:
+        return (await response.json())["auth_code"], headers
+    except:
+        return None, None
+
+async def x_auth_and_get_redirect_url(account: Account, proxy, session: aiohttp.ClientSession, x_headers, x_cookies, auth_token_to_layer_redirect):
+    url_auth = "https://twitter.com/i/api/2/oauth2/authorize"
+
+    payload_x_auth = {
+        "approval": True,
+        "code": auth_token_to_layer_redirect
+    }
+
+    response = await fetch_with_retries(
+        method="POST", url=url_auth, session=session, wallet_address=account.wallet_address, proxy=proxy,
+        data=payload_x_auth, headers=x_headers, cookies=x_cookies
+    )
+
+    try:
+        return (await response.json())["redirect_uri"]
+    except:
+        return None, None
+
+async def request_to_redirect_url(account: Account, proxy, session: aiohttp.ClientSession, redirect_uri):
+    headers = {
+        "User-Agent": account.ua,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",
+        "Referer": "https://twitter.com/",
+        "Accept-Encoding": "gzip, deflate, br, zstd",
+        "Accept-Language": "ru-RU,ru;q=0.9,en-US;q=0.8,en;q=0.7"
+    }
+
+    await session.get(redirect_uri, headers=headers, proxy=proxy)
+
+    await fetch_with_retries(
+        method="GET", url=redirect_uri, session=session, wallet_address=account.wallet_address, proxy=proxy,
+        headers=headers
+    )
+
+    tasks_url = "https://dashboard.layeredge.io/tasks"
+    headers.pop("Referer")
+
+    response = await fetch_with_retries(
+        method="GET", url=tasks_url, session=session, wallet_address=account.wallet_address, proxy=proxy,
+        headers=headers
+    )
+    return response.ok

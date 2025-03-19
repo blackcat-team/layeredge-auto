@@ -18,6 +18,15 @@ async def create_database():
         """)
         await db.commit()
 
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute("""
+            CREATE TABLE IF NOT EXISTS twitters (
+                private_key TEXT UNIQUE NOT NULL,
+                auth_token TEXT NOT NULL
+            )
+        """)
+        await db.commit()
+
 async def add_account(wallet_address: str, user_agent: str, points: int = 0):
     try:
         async with aiosqlite.connect(DATABASE_PATH) as db:
@@ -79,3 +88,23 @@ async def update_points(wallet_address: str, new_points: int):
             await db.commit()
     except:
         ...
+
+async def insert_private_key_twitter(private_key: str, auth_token: str):
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        try:
+            await db.execute("""
+                INSERT INTO twitters (private_key, auth_token) 
+                VALUES (?, ?)
+            """, (private_key, auth_token))
+            await db.commit()
+            return True
+        except aiosqlite.IntegrityError:
+            # print(f"Error: private_key {private_key} already exists")
+            return False
+
+async def twitter_connected(private_key: str):
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute("""
+            SELECT 1 FROM twitters WHERE private_key = ? LIMIT 1
+        """, (private_key,)) as cursor:
+            return await cursor.fetchone() is not None
