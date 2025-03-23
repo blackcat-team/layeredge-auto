@@ -27,12 +27,12 @@ async def process_account(private_key: str, proxy):
 
     while True:
         await check_in(account, proxy)
-        await asyncio.sleep(randint(10, 30))
-        await stop_node(account, proxy)
-        await asyncio.sleep(randint(10, 30))
-        await start_node(account, proxy)
-        await asyncio.sleep(randint(10, 30))
-        await asyncio.sleep(randint(10 * 60 * 60, 13 * 60 * 60))
+        # await asyncio.sleep(randint(10, 30))
+        # await stop_node(account, proxy)
+        # await asyncio.sleep(randint(10, 30))
+        # await start_node(account, proxy)
+        # await asyncio.sleep(randint(10, 30))
+        await asyncio.sleep(randint(24 * 60 * 60, 25 * 60 * 60))
 
 async def start():
     for private_key, proxy in zip(PRIVATE_KEYS_TO_FARM, PROXIES):
