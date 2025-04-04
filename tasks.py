@@ -36,7 +36,7 @@ async def complete_tasks(private_key: str, proxy, x_auth_token):
 
     account = Account(private_key, ua)
     logger.success(f"{account.wallet_address} | Start running tasks..")
-    # await asyncio.sleep(randint(config.MIN_DELAY_BEFORE_START_TASKS, config.MAX_DELAY_BEFORE_START_TASKS))
+    await asyncio.sleep(randint(config.MIN_DELAY_BEFORE_START_TASKS, config.MAX_DELAY_BEFORE_START_TASKS))
 
     if config.DO_PROOF:
         await send_prof(account, proxy)
