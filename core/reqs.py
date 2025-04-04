@@ -558,6 +558,7 @@ async def connect_twitter(account: Account, proxy, auth_token):
                 logger.success(f"{account.wallet_address} | Successfully logged into LayerEdge via Twitter.")
                 await asyncio.sleep(10)
                 await approve_twitter(account, proxy, access_token, auth_token, session, headers)
+                await session.close()
                 return
         except:
             logger.error(f"{account.wallet_address} | Couldn't auth through twitter account")
