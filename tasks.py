@@ -2,7 +2,8 @@ import asyncio
 from random import randint
 from fake_useragent import UserAgent
 
-from core.reqs import send_prof, submit_prof, submit_light_node, submit_free_pass, submit_og_pass, connect_twitter
+from core.reqs import send_prof, submit_prof, submit_light_node, submit_free_pass, submit_og_pass
+from core.reqs import connect_twitter, complete_follow_task
 from utils.file_utils import read_proxies, read_wallets_to_complete_tasks
 from utils.private_key_to_wallet import private_key_to_wallet
 from utils.file_utils import write_failed_tasks, write_success_tasks
@@ -13,6 +14,7 @@ from utils.log_utils import logger
 from core.account import Account
 from core import db
 from configs import config
+from configs.constants import TWITTER_USERNAMES
 
 PRIVATE_KEYS_TO_COMPLETE_TASKS = read_wallets_to_complete_tasks()
 PROXIES = read_proxies()
@@ -34,7 +36,7 @@ async def complete_tasks(private_key: str, proxy, x_auth_token):
 
     account = Account(private_key, ua)
     logger.success(f"{account.wallet_address} | Start running tasks..")
-    await asyncio.sleep(randint(config.MIN_DELAY_BEFORE_START_TASKS, config.MAX_DELAY_BEFORE_START_TASKS))
+    # await asyncio.sleep(randint(config.MIN_DELAY_BEFORE_START_TASKS, config.MAX_DELAY_BEFORE_START_TASKS))
 
     if config.DO_PROOF:
         await send_prof(account, proxy)
@@ -54,6 +56,10 @@ async def complete_tasks(private_key: str, proxy, x_auth_token):
     if config.DO_CONNECT_TWITTER_TASK:
         await connect_twitter(account, proxy, x_auth_token)
         await asyncio.sleep(10, 30)
+    if config.DO_FOLLOW_LAYEREDGE_TASK:
+        await complete_follow_task(account, proxy, TWITTER_USERNAMES['layeredge'])
+        await asyncio.sleep(10, 30)
+
 
 async def start():
     await db.create_database()

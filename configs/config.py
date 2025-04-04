@@ -35,10 +35,11 @@ MAX_DELAY_BEFORE_START_TASKS = 60 * 60
 
 DO_PROOF = False                         # Send proof
 DO_SUBMIT_PROOF_TASK = False             # Complete the task with proof confirmation
-DO_LIGHT_NODE_RUN_TASK = False            # Complete the task with light node confirmation
+DO_LIGHT_NODE_RUN_TASK = False           # Complete the task with light node confirmation
 DO_PLEDGE_PASS_HOLD_TASK = False         # Complete the task with free pass
 DO_OG_PLEDGE_PASS_HOLD_TASK = False      # Complete the task with OG pass
-DO_CONNECT_TWITTER_TASK = True           # Complete the task with OG pass
+DO_CONNECT_TWITTER_TASK = True           # Connect twitter and verify task
+DO_FOLLOW_LAYEREDGE_TASK = True          # Complete the task: 'Follow @layeredge on X'
 
 # ┏━━━━━━━━━━━━━━━━━━━━━━━━┓
 # ┃      MINT PASSES       ┃
