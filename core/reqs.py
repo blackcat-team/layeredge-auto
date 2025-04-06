@@ -13,6 +13,7 @@ from utils.file_utils import write_success_account, write_failed_account, write_
 from utils.file_utils import read_proxies, read_proofs
 from utils.file_utils import write_failed_connect_twitter_private_key, write_failed_connect_twitter_auth_token
 from utils.file_utils import write_success_connect_twitter_private_key, write_success_connect_twitter_auth_token
+from utils.file_utils import write_twitter_verified, write_twitter_is_not_verified
 from configs.config import SSL
 from utils.log_utils import logger
 from fake_useragent import UserAgent
@@ -467,7 +468,7 @@ async def submit_og_pass(account: Account, proxy):
         return False
 
 async def approve_twitter(account: Account, proxy, access_token, auth_token, session: aiohttp.ClientSession, headers):
-    logger.success(f"{account.wallet_address} | Starting proof twitter task..")
+    logger.infp(f"{account.wallet_address} | Starting proof twitter task..")
     url = "https://referralapi.layeredge.io/api/task/connect-twitter"
     message = f"I am connecting my Twitter account with LayerEdge for my wallet {account.wallet_address}"
     msg_hash = encode_defunct(text=message)
@@ -488,14 +489,20 @@ async def approve_twitter(account: Account, proxy, access_token, auth_token, ses
         account.ua,
         data_proof_submit,
         account.wallet_address,
-        retries=3
+        retries=5
     )
 
-    if response_status < 400:
+    if response_status == 400:
+        logger.error(f"{account.wallet_address} | Couldn't verify the twitter account")
+        write_failed_tasks(account.private_key)
+        write_failed_connect_twitter_private_key(account.private_key)
+        write_failed_connect_twitter_auth_token(auth_token)
+
+    elif response_status < 400:
         if response_status == 200:
             if 'message' in response_json:
                 if 'CORS policy blocked this request' in response_json['message']:
-                    logger.error(f"{account.wallet_address} | Couldn't connect the twitter account")
+                    logger.error(f"{account.wallet_address} | Couldn't verify the twitter account")
                     write_failed_tasks(account.private_key)
                     write_failed_connect_twitter_private_key(account.private_key)
                     write_failed_connect_twitter_auth_token(auth_token)
@@ -524,7 +531,7 @@ async def approve_twitter(account: Account, proxy, access_token, auth_token, ses
 
 # twitter connect
 async def connect_twitter(account: Account, proxy, auth_token):
-    logger.success(f"{account.wallet_address} | Starting connect twitter task..")
+    logger.info(f"{account.wallet_address} | Starting connect twitter task..")
     headers = {
         "User-Agent": account.ua
     }
@@ -539,7 +546,7 @@ async def connect_twitter(account: Account, proxy, auth_token):
             x_cookies, twitter_id, url_to_get_auth_code = await get_twitter_data(account, proxy, session, headers, auth_url, auth_token)
             await asyncio.sleep(5)
             if twitter_id:
-                logger.success(f"{account.wallet_address} | Successfully logged into the Twitter account")
+                logger.info(f"{account.wallet_address} | Successfully logged into the Twitter account")
             else:
                 logger.error(f"{account.wallet_address} | Couldn't log into the twitter account")
                 write_failed_connect_twitter_private_key(account.private_key)
@@ -548,23 +555,20 @@ async def connect_twitter(account: Account, proxy, auth_token):
             auth_token_to_layer_redirect, x_headers = await get_x_auth_code(account, proxy, session, x_cookies, auth_url, url_to_get_auth_code)
             await asyncio.sleep(4)
             if auth_token_to_layer_redirect:
-                logger.success(f"{account.wallet_address} | Successfully auth through twitter account")
+                logger.info(f"{account.wallet_address} | Successfully auth through twitter account")
             redirect_uri = await x_auth_and_get_redirect_url(account, proxy, session, x_headers, x_cookies, auth_token_to_layer_redirect)
             await asyncio.sleep(1)
             status, access_token = await request_to_redirect_url(account, proxy, session, redirect_uri)
             await asyncio.sleep(5)
 
             if status:
-                logger.success(f"{account.wallet_address} | Successfully logged into LayerEdge via Twitter.")
+                logger.info(f"{account.wallet_address} | Successfully logged into LayerEdge via Twitter.")
                 await asyncio.sleep(10)
                 await approve_twitter(account, proxy, access_token, auth_token, session, headers)
-                await session.close()
-                return
         except:
             logger.error(f"{account.wallet_address} | Couldn't auth through twitter account")
             write_failed_connect_twitter_private_key(account.private_key)
             write_failed_connect_twitter_auth_token(auth_token)
-
     return
 
 async def fetch_with_retries(method, url, session, wallet_address, proxy, retries=10, **kwargs) -> aiohttp.ClientResponse | None:
@@ -740,7 +744,8 @@ async def complete_follow_task(account: Account, proxy, twitter_username: str):
         proxy,
         account.ua,
         payload_x_follow,
-        account.wallet_address
+        account.wallet_address,
+        retries=3
     )
 
     try:
@@ -749,7 +754,39 @@ async def complete_follow_task(account: Account, proxy, twitter_username: str):
                 if response_json['message'] == 'follow twitter task completed successfully':
                     logger.success(f"{account.wallet_address} | Successfully complete task: follow to {twitter_username}")
                     return True
-        logger.success(f"{account.wallet_address} | Bad response: {response_json}")
+        logger.error(f"{account.wallet_address} | Bad response: {response_json}")
+    except:
+        logger.error(f"{account.wallet_address} | Failed to send request")
+
+    return False
+
+async def is_twitter_verified(account: Account, proxy):
+    logger.info(f"{account.wallet_address} | Getting twitter status..")
+
+    url = f"https://referralapi.layeredge.io/api/referral/wallet-details/{account.wallet_address}"
+
+    response_status, response_json = await make_request(
+        'GET',
+        url,
+        proxy,
+        account.ua,
+        wallet_address=account.wallet_address,
+        retries=3
+    )
+
+    try:
+        if response_status == 200:
+            if 'data' in response_json:
+                if 'isTwitterVerified' in response_json['data']:
+                    is_verified = response_json['data']['isTwitterVerified']
+                    if is_verified:
+                        write_twitter_verified(account.private_key)
+                    else:
+                        write_twitter_is_not_verified(account.private_key)
+
+                    logger.info(f"{account.wallet_address} | is Twitter Verified: {is_verified}")
+            else:
+                logger.error(f"{account.wallet_address} | Bad response: {response_json}")
     except:
         logger.error(f"{account.wallet_address} | Failed to send request")
 

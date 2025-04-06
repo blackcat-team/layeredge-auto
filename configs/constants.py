@@ -34,7 +34,10 @@ FAILED_CONNECT_TWITTER_PRIVATE_KEY = os.path.join(RESULTS_DIR, 'twitter_private_
 FAILED_CONNECT_TWITTER_AUTH_TOKEN = os.path.join(RESULTS_DIR, 'twitter_auth_tokens_failed.txt')
 SUCCESS_CONNECT_TWITTER_PRIVATE_KEY = os.path.join(RESULTS_DIR, 'twitter_private_keys_success.txt')
 SUCCESS_CONNECT_TWITTER_AUTH_TOKEN = os.path.join(RESULTS_DIR, 'twitter_auth_tokens_success.txt')
+TWITTER_VERIFIED = os.path.join(RESULTS_DIR, 'twitter_verified.txt')
+TWITTER_IS_NOT_VERIFIED = os.path.join(RESULTS_DIR, 'twitter_is_not_verified.txt')
 
 TWITTER_USERNAMES = {
-    'layeredge': 'layeredge'
+    'layeredge': 'layeredge',
+    'dev': 'ayushbuidl'
 }

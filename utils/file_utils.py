@@ -5,6 +5,7 @@ from configs.constants import WALLETS_TO_MINT_NFT, SUCCESS_MINT_PATH, FAILED_MIN
 from configs.constants import FAILED_PATH, SUCCESS_PATH, ACCS_REFS_PATH
 from configs.constants import FAILED_CONNECT_TWITTER_PRIVATE_KEY, FAILED_CONNECT_TWITTER_AUTH_TOKEN
 from configs.constants import SUCCESS_CONNECT_TWITTER_PRIVATE_KEY, SUCCESS_CONNECT_TWITTER_AUTH_TOKEN
+from configs.constants import TWITTER_VERIFIED, TWITTER_IS_NOT_VERIFIED
 
 def read_json(path: str, encoding: str | None = None) -> list | dict:
     return json.load(open(path, encoding=encoding))
@@ -83,3 +84,11 @@ def write_success_connect_twitter_private_key(private_key: str):
 def write_success_connect_twitter_auth_token(auth_token: str):
     with open(SUCCESS_CONNECT_TWITTER_AUTH_TOKEN, 'a', encoding="utf-8") as f:
         f.write(f'{auth_token}\n')
+
+def write_twitter_verified(private_key: str):
+    with open(TWITTER_VERIFIED, 'a', encoding="utf-8") as f:
+        f.write(f'{private_key}\n')
+
+def write_twitter_is_not_verified(private_key: str):
+    with open(TWITTER_IS_NOT_VERIFIED, 'a', encoding="utf-8") as f:
+        f.write(f'{private_key}\n')
