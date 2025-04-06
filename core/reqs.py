@@ -781,6 +781,7 @@ async def is_twitter_verified(account: Account, proxy):
                     is_verified = response_json['data']['isTwitterVerified']
                     if is_verified:
                         write_twitter_verified(account.private_key)
+                        return True
                     else:
                         write_twitter_is_not_verified(account.private_key)
 
