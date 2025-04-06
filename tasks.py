@@ -64,14 +64,20 @@ async def complete_tasks(private_key: str, proxy, x_auth_token):
 async def start():
     await db.create_database()
     tasks = []
-    for private_key, proxy, x_auth_token in zip(PRIVATE_KEYS_TO_COMPLETE_TASKS, PROXIES, X_AUTH_TOKENS):
+    if config.DO_CONNECT_TWITTER_TASK:
+        accounts_data = zip(PRIVATE_KEYS_TO_COMPLETE_TASKS, PROXIES, X_AUTH_TOKENS)
+    else:
+        accounts_data = zip(PRIVATE_KEYS_TO_COMPLETE_TASKS, PROXIES)
+    for private_key, proxy, x_auth_token in accounts_data:
         task = asyncio.create_task(complete_tasks(private_key, proxy, x_auth_token))
         tasks.append(task)
-        await asyncio.sleep(0.1)
+        await asyncio.sleep(0.2)
 
     while tasks:
         tasks = [task for task in tasks if not task.done()]
         await asyncio.sleep(10)
+
+    logger.success(f"All accounts processed!")
 
     logger.success(f"All accounts processed!")
 
