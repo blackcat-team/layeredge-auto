@@ -468,7 +468,7 @@ async def submit_og_pass(account: Account, proxy):
         return False
 
 async def approve_twitter(account: Account, proxy, access_token, auth_token, session: aiohttp.ClientSession, headers):
-    logger.infp(f"{account.wallet_address} | Starting proof twitter task..")
+    logger.info(f"{account.wallet_address} | Starting proof twitter task..")
     url = "https://referralapi.layeredge.io/api/task/connect-twitter"
     message = f"I am connecting my Twitter account with LayerEdge for my wallet {account.wallet_address}"
     msg_hash = encode_defunct(text=message)
