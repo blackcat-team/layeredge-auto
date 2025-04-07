@@ -57,13 +57,13 @@ async def complete_tasks(private_key: str, proxy, x_auth_token):
     if config.DO_OG_PLEDGE_PASS_HOLD_TASK:
         await submit_og_pass(account, proxy)
         await asyncio.sleep(10, 30)
-    if config.DO_CONNECT_TWITTER_TASK:
-        await connect_twitter(account, proxy, x_auth_token)
-        await asyncio.sleep(10, 30)
     if config.CHECK_IS_TWITTER_VERIFIED:
         is_verified = await is_twitter_verified(account, proxy)
         await asyncio.sleep(10, 30)
-    if config.DO_FOLLOW_LAYEREDGE_TASK and not is_verified:
+    if config.DO_CONNECT_TWITTER_TASK and not is_verified:
+        await connect_twitter(account, proxy, x_auth_token)
+        await asyncio.sleep(10, 30)
+    if config.DO_FOLLOW_LAYEREDGE_TASK:
         await complete_follow_task(account, proxy, TWITTER_USERNAMES['layeredge'])
         await asyncio.sleep(10, 30)
     if config.DO_FOLLOW_AYUSHBUIDL_TASK:
