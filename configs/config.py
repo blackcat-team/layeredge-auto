@@ -1,5 +1,5 @@
 REGISTER_MODE = False
-FARM_MODE = True
+FARM_MODE = False
 
 # ┏━━━━━━━━━━━━━━━━━━━━━━━━┓
 # ┃     REFERRAL TIMING    ┃
@@ -55,7 +55,7 @@ DO_FOLLOW_AYUSHBUIDL_TASK = False          # Complete the task: 'Follow @ayushbu
 # ┗━━━━━━━━━━━━━━━━━━━━━━━━┛
 # Enable or disable tasks
 
-MINT_FREE_PASS = True                   # Mint free pledge pass. Need ETH to pay transaction fees
-MINT_OG_PASS = False                    # Mint OG pledge pass for 0.0009 ETH
-MIN_DELAY_BETWEEN_ACCOUNTS = 1        # in seconds
-MAX_DELAY_BETWEEN_ACCOUNTS = 2        # in seconds
+MINT_FREE_PASS = False                   # Mint free pledge pass. Need ETH to pay transaction fees
+MINT_MINT_POH = True                    # Mint OG pledge pass for 0.0009 ETH
+MIN_DELAY_BETWEEN_ACCOUNTS = 30        # in seconds
+MAX_DELAY_BETWEEN_ACCOUNTS = 120        # in seconds
