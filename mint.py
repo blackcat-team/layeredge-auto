@@ -13,7 +13,7 @@ from configs import config
 
 w3 = AsyncWeb3(provider=AsyncHTTPProvider(endpoint_uri="https://mainnet.base.org"))
 
-CONTRACT_ADDRESS = "0xb06C68C8f9DE60107eAbda0D7567743967113360"
+CONTRACT_ADDRESS = "0x88C22d7A0E56fD58BCe849c3aF9c482c5166047b"
 PRIVATE_KEYS_TO_MINT = read_wallets_to_mint_nft()
 
 async def create_dict_transaction(wallet_address: str, multiplier: float = 1.3) -> dict:
@@ -52,13 +52,10 @@ wallet_address: str | ChecksumAddress
     return w3.eth.contract(contract_address, abi=abi), await create_dict_transaction(wallet_address)
 
 
-async def mint_nft(private_key, is_free=True):
+async def mint_nft(private_key):
     try:
         nft_type = 1
-        func = "Mint free pass"
-        if not is_free:
-            nft_type = 2
-            func = "Mint OG pass"
+        func = "Mint POH pass"
 
         account = Account(private_key)
 
@@ -67,8 +64,7 @@ async def mint_nft(private_key, is_free=True):
                 "data/abis/free_mint_abi.json",
                 account.wallet_address)
 
-        if not is_free:
-            dict_transaction['value'] = w3.to_wei('0.000909', 'ether')
+        dict_transaction['value'] = w3.to_wei('0.00007', 'ether')
 
         txn_mint = await contract.functions.mint(
             nft_type,
@@ -83,15 +79,11 @@ async def mint_nft(private_key, is_free=True):
 async def start():
     tasks = []
     for private_key in PRIVATE_KEYS_TO_MINT:
-        if config.MINT_FREE_PASS:
-            task = asyncio.create_task(mint_nft(private_key))
-            tasks.append(task)
-            await asyncio.sleep(0.1)
-
-        if config.MINT_OG_PASS:
+        
+        if config.MINT_POH:
             if config.MINT_FREE_PASS:
                 await asyncio.sleep(randint(60, 90))
-            task = asyncio.create_task(mint_nft(private_key, is_free=False))
+            task = asyncio.create_task(mint_nft(private_key))
             tasks.append(task)
             await asyncio.sleep(0.1)
 
