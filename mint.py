@@ -56,7 +56,7 @@ async def mint_nft(private_key):
     try:
         nft_type = 1
         func = "Mint POH pass"
-        
+
         account = Account(private_key)
 
         contract, dict_transaction = await create_contract_and_txn(
@@ -79,15 +79,11 @@ async def mint_nft(private_key):
 async def start():
     tasks = []
     for private_key in PRIVATE_KEYS_TO_MINT:
-        if config.MINT_FREE_PASS:
-            task = asyncio.create_task(mint_nft(private_key))
-            tasks.append(task)
-            await asyncio.sleep(0.1)
-
-        if config.MINT_OG_PASS:
+        
+        if config.MINT_POH:
             if config.MINT_FREE_PASS:
                 await asyncio.sleep(randint(60, 90))
-            task = asyncio.create_task(mint_nft(private_key, is_free=False))
+            task = asyncio.create_task(mint_nft(private_key))
             tasks.append(task)
             await asyncio.sleep(0.1)
 
